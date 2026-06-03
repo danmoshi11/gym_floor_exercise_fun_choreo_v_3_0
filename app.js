@@ -914,33 +914,31 @@ const AppController = {
             overlay.classList.add('opacity-0');
             setTimeout(() => { if (container.contains(overlay)) container.removeChild(overlay); }, 500);
 
-            // 把计算好的摔跤数组传给动画播放器
             let fallIds = window.currentEScoreReport ? window.currentEScoreReport.fallTrackIds : [];
             
             canvasManager.playHighlightAnimation(() => {
                 if (overlay && overlay.parentNode) {
                     overlay.classList.add('opacity-0');
-                    setTimeout(() => container.removeChild(overlay), 500);
-                }
-                
-                // ✨【核心修正】：在回调函数内部，重新提取当前环境的选手和D分，绝不闪退！
-                const currentGymnastMode = window.currentRoutineData.gymnastMode || 'none';
-                const actualDScore = window.currentScoreReport ? window.currentScoreReport.totalD : 0;
-
-                if (window.currentPlaybackMode === 'manual_e') {
-                    window.currentEScoreReport = ExecutionEngine.calculateEScore(currentGymnastMode, canvasManager.tracks, actualDScore);
-                }
-
-                if (overlay && overlay.parentNode) {
-                    overlay.classList.add('opacity-0');
                     setTimeout(() => { if(overlay.parentNode) container.removeChild(overlay); }, 500);
                 }
                 
-                let dReport = window.currentScoreReport;
-                let eReport = window.currentEScoreReport;
+                // 🛡️ 核心防死锁 1：重新安全提取当前环境的选手状态和D分
+                const currentGymnastMode = window.currentRoutineData.gymnastMode || 'none';
+                const actualDScore = window.currentScoreReport ? window.currentScoreReport.totalD : 0;
+
+                // 强制要求计算一遍手动 E 分，确保 currentEScoreReport 不为空
+                if (window.currentPlaybackMode === 'manual_e') {
+                    window.currentEScoreReport = ExecutionEngine.calculateEScore(currentGymnastMode, canvasManager.tracks, actualDScore);
+                }
+                
+                // 🛡️ 核心防死锁 2：赋予兜底属性，绝不允许系统读取到 null！
+                let dReport = window.currentScoreReport || { totalD: 0 };
+                let eReport = window.currentEScoreReport || { finalEScore: 10.0, details: [] };
                 let ndDeduction = canvasManager.tracks.reduce((sum, t) => sum + (t.nd || 0), 0);
                 
                 const isNoE = (window.currentPlaybackMode === 'no_e');
+                
+                // 此时提取 eReport.finalEScore 绝不会再报错了！
                 let finalTotalScore = isNoE 
                     ? (dReport.totalD + ndDeduction).toFixed(3) 
                     : (dReport.totalD + eReport.finalEScore + ndDeduction).toFixed(3);
@@ -962,7 +960,9 @@ const AppController = {
 
                 this.saveRoutineToHistory(finalTotalScore); 
                 this.exportToImage();
-                document.getElementById('saveConfirmModal').classList.remove('hidden');
+                
+                const confirmModal = document.getElementById('saveConfirmModal');
+                if (confirmModal) confirmModal.classList.remove('hidden');
                 
             }, fallIds); 
         }, 800); 
@@ -1389,40 +1389,45 @@ window.ManualJurySystem = {
     // ==========================================
     // 1. 智能套牌牌库加载 (✨ 增加艺术分专属紫色渲染与数据标记)
     // ==========================================
+    // ==========================================
+    // 1. 智能套牌牌库加载 (🛡️ 引入无死角字段提取，兼容 D裁无名数据)
+    // ==========================================
     initCardDeck: function() {
         const container = document.getElementById('juryCardContainer');
         if (!container) return;
         
-        // ✨ 同时读取 E 裁和 D 裁的数据库！
         const eDeductions = (window.e_jury_deductions || []).map(r => ({...r, isDScore: false}));
         const dDeductions = (window.d_jury_deductions || []).map(r => ({...r, isDScore: true}));
         const allRules = [...eDeductions, ...dDeductions];
 
-        if (allRules.length === 0) return;
+        if (allRules.length === 0) {
+            container.innerHTML = '<div class="text-rose-500 font-black text-xs w-full text-center mt-4">数据加载失败，请检查 JS 文件是否正确加载。</div>';
+            return;
+        }
 
         const searchVal = (document.getElementById('juryCardSearch')?.value || '').toLowerCase();
         const filterVal = document.getElementById('juryCardFilter')?.value || 'recommend';
         const recommendedKeywords = ['落地', '高度', '出界', '屈膝', '分腿', '未停稳', '多余', '步'];
 
         let filtered = allRules.filter(rule => {
-            const isArtistry = (rule.target_tags && rule.target_tags.includes("global")) || 
-                               rule.name.includes("艺术") || rule.name.includes("编排");
-
-            // ✨ 如果选了 D 裁模式，只显示 D 裁的蓝卡
-            if (filterVal === 'd_jury') return rule.isDScore;
+            // 🛡️ 核心修复：D 裁规则可能没有 name 字段，我们智能向下兼容读取！
+            const ruleName = rule.name || rule.description || rule.fault_condition || "未命名扣分";
             
-            // 否则过滤掉 D 裁卡，防止它们混进常规推荐里
+            const isArtistry = (rule.target_tags && rule.target_tags.includes("global")) || 
+                               ruleName.includes("艺术") || ruleName.includes("编排");
+
+            if (filterVal === 'd_jury') return rule.isDScore;
             if (rule.isDScore) return false;
 
             if (filterVal === 'artistry') return isArtistry;
             if (isArtistry && filterVal !== 'all') return false; 
 
             if (filterVal === 'recommend') {
-                if (!recommendedKeywords.some(kw => rule.name.includes(kw))) return false;
+                if (!recommendedKeywords.some(kw => ruleName.includes(kw))) return false;
             } else if (filterVal !== 'all') {
                 if (rule.deduction.toString() !== filterVal) return false;
             }
-            if (searchVal && !rule.name.toLowerCase().includes(searchVal)) return false;
+            if (searchVal && !ruleName.toLowerCase().includes(searchVal)) return false;
             return true;
         });
 
@@ -1433,8 +1438,10 @@ window.ManualJurySystem = {
 
         const groups = {};
         filtered.forEach(rule => {
-            let baseName = rule.name.replace(/(极度|严重|小|中|大)?(失误|扣分|错误|掉下器械|降组|不予承认)/g, '').trim();
-            if (!baseName) baseName = rule.name;
+            // 🛡️ 同步替换提取逻辑
+            const ruleName = rule.name || rule.description || rule.fault_condition || "未命名扣分";
+            let baseName = ruleName.replace(/(极度|严重|小|中|大)?(失误|扣分|错误|掉下器械|降组|不予承认)/g, '').trim();
+            if (!baseName) baseName = ruleName;
             if (!groups[baseName]) groups[baseName] = [];
             groups[baseName].push(rule);
         });
@@ -1444,30 +1451,30 @@ window.ManualJurySystem = {
             rules.sort((a, b) => a.deduction - b.deduction);
             let chipsHtml = '';
             
-            const isArtistryGroup = rules.some(r => r.name.includes("艺术") || r.name.includes("编排") || (r.target_tags && r.target_tags.includes("global")));
-            // ✨ 判断这组是不是 D 裁专属
+            const isArtistryGroup = rules.some(r => {
+                const rn = r.name || r.description || r.fault_condition || "";
+                return rn.includes("艺术") || rn.includes("编排") || (r.target_tags && r.target_tags.includes("global"));
+            });
             const isDScoreGroup = rules.some(r => r.isDScore);
 
             rules.forEach(rule => {
+                const ruleName = rule.name || rule.description || rule.fault_condition || "未命名";
                 let colorClass = 'bg-slate-100 text-slate-600 border-slate-200 hover:border-slate-400';
                 
-                // ✨ 颜色分流：D裁为电竞蓝，艺术分为紫粉，常规分为红/黄
-                if (isDScoreGroup) {
-                    colorClass = 'bg-blue-50 text-blue-700 border-blue-300 hover:border-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.15)]';
-                } else if (isArtistryGroup) {
-                    colorClass = 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-300 hover:border-fuchsia-500 shadow-[0_0_8px_rgba(217,70,239,0.15)]';
-                } else if (rule.deduction >= 1.0) colorClass = 'bg-rose-50 text-rose-600 border-rose-200 hover:border-rose-400';
+                if (isDScoreGroup) colorClass = 'bg-blue-50 text-blue-700 border-blue-300 hover:border-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.15)]';
+                else if (isArtistryGroup) colorClass = 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-300 hover:border-fuchsia-500 shadow-[0_0_8px_rgba(217,70,239,0.15)]';
+                else if (rule.deduction >= 1.0) colorClass = 'bg-rose-50 text-rose-600 border-rose-200 hover:border-rose-400';
                 else if (rule.deduction >= 0.5) colorClass = 'bg-orange-50 text-orange-600 border-orange-200 hover:border-orange-400';
                 else if (rule.deduction >= 0.3) colorClass = 'bg-amber-50 text-amber-600 border-amber-200 hover:border-amber-400';
                 
-                // 标记写入数据包
-                const payload = JSON.stringify({ name: rule.name, deduction: rule.deduction, isArtistry: isArtistryGroup, isDScore: rule.isDScore });
+                // 将安全提取的 ruleName 写入 payload
+                const payload = JSON.stringify({ name: ruleName, deduction: rule.deduction, isArtistry: isArtistryGroup, isDScore: rule.isDScore });
                 
                 chipsHtml += `
                     <div draggable="true" 
                          ondragstart="ManualJurySystem.dragStart(event, '${encodeURIComponent(payload)}')"
                          ondragend="ManualJurySystem.dragEnd(event)"
-                         title="${rule.name}"
+                         title="${ruleName}"
                          class="${colorClass} border px-2 py-0.5 rounded font-black text-xs cursor-grab active:cursor-grabbing transition-all transform hover:-translate-y-0.5">
                         -${rule.deduction.toFixed(1)}
                     </div>
