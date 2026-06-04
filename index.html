@@ -27,6 +27,40 @@
         .floor-gymnova { background-color: #fef3c7; border-color: #dc2626; }
         .floor-spieth { background-color: #e0f2fe; border-color: #cbd5e1; }
         .floor-gaofei { background-color: #fee2e2; border-color: #b91c1c; }
+        .starburst-badge {
+        clip-path: polygon(50% 0%, 61% 16%, 79% 10%, 82% 28%, 100% 34%, 92% 50%, 100% 66%, 82% 72%, 79% 90%, 61% 84%, 50% 100%, 39% 84%, 21% 90%, 18% 72%, 0% 66%, 8% 50%, 0% 34%, 18% 28%, 21% 10%, 39% 16%);
+        } 
+
+        .hero-kenburns {
+            animation: kenburns 6s ease-out forwards;
+        }
+        @keyframes kenburns {
+            0% { transform: scale(1.05); opacity: 0; filter: blur(4px); }
+            10% { opacity: 0.6; filter: blur(0px); }
+            85% { opacity: 0.6; filter: blur(0px); }
+            100% { transform: scale(1); opacity: 0; filter: blur(2px); }
+        }
+
+        
+        .starburst-badge {
+            clip-path: polygon(50% 0%, 58% 12%, 73% 6%, 77% 20%, 93% 21%, 89% 35%, 100% 50%, 89% 65%, 93% 79%, 77% 80%, 73% 94%, 58% 88%, 50% 100%, 42% 88%, 27% 94%, 23% 80%, 7% 79%, 11% 65%, 0% 50%, 11% 35%, 7% 21%, 23% 20%, 27% 6%, 42% 12%);
+        }
+
+        @keyframes heartbeat-scale {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); } /* 放大 15% */
+        }
+        .animate-heartbeat {
+            animation: heartbeat-scale 1s ease-in-out infinite;
+        }
+
+        .gallery-blurred {
+            object-fit: cover;
+            /* 核心科技：用径向渐变遮罩，中间不透明，边缘渐变到全透明，形成极其柔和的模糊边缘 */
+            -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
+            mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
+            mix-blend-mode: screen; /* 叠加底层发光，去掉黑底 */
+        }  
 
         /* ==========================================
            世界一：高级流麻与全屏朦胧轮播引擎
@@ -85,24 +119,28 @@
         <div class="text-slate-500 text-xs mt-6 font-mono tracking-widest uppercase">Initializing Engine...</div>
     </div>
     <main id="viewStart" class="fixed inset-0 z-50 w-full h-screen flex items-center justify-center bg-slate-950 overflow-hidden transition-opacity duration-1000">
-        <div class="absolute inset-0 z-0">
-            <!-- 先放毛玻璃层模糊深色背景 -->
-            <div class="absolute inset-0 backdrop-blur-xl bg-slate-900/50"></div>
-            <!-- 再放圆球，圆球本身不 blur，靠毛玻璃产生柔和感 -->
+        
+        <div class="absolute inset-0 z-0 pointer-events-none">
+            <div id="ambientBlobs" class="absolute inset-0 backdrop-blur-xl bg-slate-900/50"></div>
             <div class="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-indigo-700/60 rounded-full mix-blend-screen filter blur-none animate-blob"></div>
             <div class="absolute bottom-[-10%] right-[-10%] w-[70vw] h-[70vw] bg-fuchsia-800/50 rounded-full mix-blend-screen filter blur-none animate-blob animation-delay-4000"></div>
             <div class="absolute top-[20%] left-[30%] w-[50vw] h-[50vw] bg-blue-600/40 rounded-full mix-blend-screen filter blur-none animate-blob animation-delay-2000"></div>
         </div>
 
-        <div class="hero-carousel hero-img-1" style="background-image: url('./images/Simone_Biles_Showcast.jpeg');"></div>
-        <div class="hero-carousel hero-img-2" style="background-image: url('./images/Rebeca_Andrade_Showcast.jpg');"></div>
-        <div class="hero-carousel hero-img-3" style="background-image: url('./images/Ruby_Evans_Showcast.jpg');"></div>
-        <div class="hero-carousel hero-img-4" style="background-image: url('./images/Ou_Yushan_Showcast.jpg');"></div>
-        <div class="hero-carousel hero-img-5" style="background-image: url('./images/Brooklyn_Moors_Showcast.jpg');"></div>
+        <div id="heroStage" class="absolute inset-0 z-0 pointer-events-none overflow-hidden"></div>
 
-        <div class="absolute inset-0 bg-slate-950/20 z-0 pointer-events-none"></div>
+        <div class="absolute inset-0 bg-slate-950/40 z-10 pointer-events-none transition-opacity duration-1000" id="heroOverlay"></div>
 
-        <div class="relative z-10 max-w-lg w-full mx-6 p-10 md:p-14 rounded-[2.5rem] bg-white/0 border border-white/20 shadow-2xl text-white text-center">
+        <div class="relative z-20 max-w-lg w-full mx-6 p-10 md:p-14 rounded-[2.5rem] bg-white/0 border border-white/20 shadow-2xl text-white text-center backdrop-blur-none">
+            
+            <div onclick="document.getElementById('changelogModal').classList.remove('hidden')" 
+                 class="absolute -top-8 -right-8 w-28 h-28 bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-400 starburst-badge flex items-center justify-center cursor-pointer shadow-2xl animate-heartbeat z-50">
+                <div class="text-center transform -rotate-12 mt-1">
+                    <div class="text-white font-black text-base leading-none drop-shadow-md">V 3.0</div>
+                    <div class="text-yellow-100 font-bold text-xs leading-tight mt-0.5">更新日志</div>
+                </div>
+            </div>
+
             <h1 class="text-5xl md:text-6xl font-black mb-4 tracking-tight flex flex-col items-center gap-3 drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">
                 GymChoreo
                 <span class="text-xs font-bold text-indigo-200 bg-black/40 px-3 py-1.5 rounded-full border border-white/10 tracking-widest uppercase shadow-inner">
@@ -118,7 +156,7 @@
 
     <nav class="bg-white/80 backdrop-blur-xl shadow-sm border-b border-slate-200 sticky top-0 z-40 hidden transition-opacity" id="mainNav">
         <div class="max-w-[1400px] mx-auto px-4 flex justify-between items-center h-16">
-            <h1 class="text-xl font-black tracking-tight text-slate-800 flex items-center gap-2">
+            <h1 id="workbench-logo" class="text-xl font-black tracking-tight text-slate-800 flex items-center gap-2 cursor-pointer hover:opacity-70 transition-opacity">
                 🤸‍♀️ GymChoreo <span class="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">CoP 25-28</span>
             </h1>
             <div class="flex gap-3 md:gap-6 h-full items-center">
@@ -464,6 +502,51 @@
         </div>
     </div>
 
+    <div id="changelogModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] hidden flex items-center justify-center">
+        <div class="bg-white w-11/12 max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-5 flex justify-between items-center text-white shrink-0">
+                <h2 class="text-xl font-black flex items-center gap-2">🚀 GymChoreo 进化史</h2>
+                <button onclick="document.getElementById('changelogModal').classList.add('hidden')" class="bg-white/20 hover:bg-white/30 rounded-full w-8 h-8 flex items-center justify-center font-bold transition-colors">&times;</button>
+            </div>
+            <div class="p-6 overflow-y-auto no-scrollbar relative">
+                <div class="absolute left-8 top-6 bottom-6 w-0.5 bg-slate-200"></div>
+                
+                <div class="relative pl-8 mb-8">
+                    <div class="absolute left-[-5px] top-1 w-3 h-3 bg-rose-500 rounded-full ring-4 ring-rose-100"></div>
+                    <div class="font-black text-rose-600 text-lg">V 3.0 (最新)</div>
+                    <div class="text-xs font-bold text-slate-400 mb-2">2026 史诗级执裁更新</div>
+                    <ul class="text-sm text-slate-600 space-y-1.5 font-bold list-disc pl-4">
+                        <li>底层重构：引入 E 裁判抽屉式拖拽打分系统</li>
+                        <li>UI升级：红、蓝、紫三色卡牌，完美融合艺术与降组</li>
+                        <li>智能纠察：自动扫描编排违规并弹窗警告</li>
+                        <li>视觉大修：加入首页剧场模式与多角星版本提示</li>
+                    </ul>
+                </div>
+                
+                <div class="relative pl-8 mb-8">
+                    <div class="absolute left-[-5px] top-1 w-3 h-3 bg-indigo-500 rounded-full ring-4 ring-indigo-100"></div>
+                    <div class="font-black text-indigo-600 text-lg">V 2.0</div>
+                    <div class="text-xs font-bold text-slate-400 mb-2">社交与冲榜时代</div>
+                    <ul class="text-sm text-slate-600 space-y-1.5 font-bold list-disc pl-4">
+                        <li>新增 6 位数短码分享与加密导出</li>
+                        <li>接入 Supabase 全球大奖牌榜</li>
+                        <li>新增体操动作 A-J 组别难度快速过滤引擎</li>
+                    </ul>
+                </div>
+
+                <div class="relative pl-8">
+                    <div class="absolute left-[-5px] top-1 w-3 h-3 bg-slate-400 rounded-full ring-4 ring-slate-100"></div>
+                    <div class="font-black text-slate-600 text-lg">V 1.0</div>
+                    <div class="text-xs font-bold text-slate-400 mb-2">创世基石</div>
+                    <ul class="text-sm text-slate-600 space-y-1.5 font-bold list-disc pl-4">
+                        <li>基于 Canvas 的路线绘制与战术板系统</li>
+                        <li>FIG D分与 CV 链接加分自动计算引擎</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="data.js"></script>
     <script src="d_score.js"></script>
     <script src="canvas.js"></script>
@@ -493,9 +576,9 @@
         });
 
         window.addEventListener('load', () => {
-            const loader = document.getElementById('globalLoader');
             const progress = document.getElementById('loaderProgress');
-            if(progress) progress.style.width = '100%'; // 全部资源加载完跑满100%
+            if(progress) progress.style.width = '80%'; // 走到80%停住，剩下的等视频引擎缓冲
+            // 🚨 删除了原来自动隐藏 globalLoader 的逻辑，交接给 app.js 引擎控制
             
             // 延迟一点点，让玩家看清进度条满了，然后再优雅淡出
             setTimeout(() => {
