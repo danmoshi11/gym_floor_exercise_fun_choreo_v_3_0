@@ -569,24 +569,37 @@
         let isRoutineInitialized = false; 
         window.currentTab = 'dictionary'; // 显式开辟全局变量记录当前选项卡
 
-        // ✨ 全局加载引擎：模拟进度并等待资源就绪
+        // ==========================================
+        // ✨ 全局加载引擎：拟真进度条 + 终极保险
+        // ==========================================
         window.addEventListener('DOMContentLoaded', () => {
             const progress = document.getElementById('loaderProgress');
-            if(progress) progress.style.width = '60%'; // DOM加载完先跑60%
+            if(progress) {
+                // 1. 拟真加载：让进度条在 6 秒内极其平滑地慢慢走到 85%
+                // 这会给用户一种“系统正在拼命下载高清资源”的真实感
+                progress.style.transition = 'width 6s cubic-bezier(0.1, 0.8, 0.2, 1)';
+                progress.style.width = '85%'; 
+            }
         });
 
         window.addEventListener('load', () => {
-            const progress = document.getElementById('loaderProgress');
-            if(progress) progress.style.width = '80%'; // 走到80%停住，剩下的等视频引擎缓冲
-            // 🚨 删除了原来自动隐藏 globalLoader 的逻辑，交接给 app.js 引擎控制
-            
-            // 延迟一点点，让玩家看清进度条满了，然后再优雅淡出
+            // HTML 和静态资源加载完毕。
+            // 剩下的 15% 进度以及隐藏 Loading 的工作，已经完全交给 app.js 里的视频缓冲引擎了！
+            // (🚨 彻底清除了之前报错的残留代码)
+
+            // 2. 终极防卡死保险：万一视频源彻底挂了，导致 app.js 没能接管
+            // 设定一个 12 秒的绝对强制超时，时间一到，强行炸毁 Loading 界面进入系统！
             setTimeout(() => {
-                if(loader) {
+                const loader = document.getElementById('globalLoader');
+                if (loader && !loader.classList.contains('opacity-0')) {
+                    console.warn('⚠️ 视频缓冲超时，已触发终极保险，强行进入系统！');
+                    const progress = document.getElementById('loaderProgress');
+                    if(progress) progress.style.width = '100%';
+                    
                     loader.classList.add('opacity-0');
-                    setTimeout(() => loader.remove(), 700); // 彻底从文档移除，不挡鼠标
+                    setTimeout(() => loader.remove(), 700);
                 }
-            }, 600);
+            }, 12000); 
         });
         function enterSystem() {
            const startView = document.getElementById('viewStart');
